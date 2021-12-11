@@ -1,0 +1,121 @@
+
+
+import time
+import random
+def id_autoclave_loc(ID):
+    """
+    Identify Autoclave Bin Location
+    Identifies the correct autoclave bin drop-off location for a specific container.
+    Input - ID (int)
+    Output - Location (list)
+    """
+    red = [-0.566,0.225,0.373]         #small red ID = 1 dropoff
+    green = [0.0, -0.61, 0.372]        #small green ID = 2 dropoff
+    blue = [0.0,0.608,0.374]           #small blue ID = 3 dropoff
+    red_large = [-0.328, 0.13,0.29]    #large red ID = 4 dropoff
+    green_large = [0.0, -0.371, 0.27]  #large green ID = 5 dropoff
+    blue_large = [0.0, 0.383, 0.266]   #large blue ID = 6 dropoff
+    if ID <= 3:
+        if ID == 1:
+            return red
+        elif ID == 2:
+            return green
+        else:
+            return blue
+    
+    elif ID >= 4:
+        if ID == 4:
+            return red_large
+        elif ID == 5:
+            return green_large
+        else:
+            return blue_large
+
+def move_endeffector(ID, pick_drop_hold):
+    """
+    Move end effector
+    Move q-arm from specific location to another specific location
+    Input: ID (integer), pick_hold_drop (string)
+    Output: Moves the q-arm
+    """
+    pick_up = [0.484, 0.0, 0.046]                         #pickup location
+    home = [0.406, 0.0, 0.483]                            #home location
+    while arm.emg_left() < 0.6 or arm.emg_right() != 0:   #loop to wait for input
+           pass
+    if pick_drop_hold == "pick":                         #picks up container
+        arm.move_arm(pick_up[0],pick_up[1],pick_up[2])
+        time.sleep(2)
+    elif pick_drop_hold == "drop":                       #drops of container
+        arm.move_arm(id_autoclave_loc(ID)[0],id_autoclave_loc(ID)[1],id_autoclave_loc(ID)[2])
+        time.sleep(2)
+    elif pick_drop_hold == "hold":                       #prevents grip openning
+        arm.move_arm(home[0],home[1],home[2])
+        time.sleep(2)
+
+def control_gripper(ID, pick_drop):
+    """
+    Control Gripper
+    Opens or closes gripper around container
+    Input: ID (int), pick_drop (string)
+    Output: Opens or closes gripper
+    """
+    while arm.emg_left() < 0.6 or arm.emg_right() < 0.6:     #loop to wait for input
+        pass
+    if ID <= 3:
+        if pick_drop == "pick":         #closes gripper
+            arm.control_gripper(30)
+            time.sleep(2)
+        elif pick_drop == "drop":       #opens gripper
+            arm.control_gripper(-30)
+            time.sleep(2)
+    elif ID >=4:
+        if pick_drop == "pick":         #closes gripper
+            arm.control_gripper(25)
+            time.sleep(2)
+        elif pick_drop == "drop":       #opens gripper
+            arm.control_gripper(-25)
+            time.sleep(2)
+        
+def open_autoclave_drawer(ID, open_close):
+    """
+    Open Autoclave Drawer
+    Opens or closes correct autoclave bin drawer
+    Input: ID (int), open_close (bool)
+    Output: Open or closes autoclave drawer
+    """
+    if ID < 4:        #if container is small, skip function
+        return
+    while (arm.emg_left() != 0 or arm.emg_right() < 0.6) and ID > 3:    #loop to wait for input
+        pass
+    if ID == 4:                                #opens/closes correct drawer
+        arm.open_red_autoclave(open_close)        
+    elif ID == 5:
+        arm.open_green_autoclave(open_close)
+    else:
+        arm.open_blue_autoclave(open_close)
+
+def main():
+    """
+    Get A Grip
+    Picks up and transfers container to the correct autoclave dropoff location
+    and repeats until all containers are sorted
+    Input: Muscle Sensor
+    Output: Move containers
+    """
+    inventory = [1,2,3,4,5,6]             #keeps inventory of containers
+    arm.home()
+    while len(inventory) > 0:             #repeats programs if inventory is NOT empty
+        if len(inventory) == 1:
+            ID = inventory[0]
+        else:                             #randomizes container if there is more than 1 in inventory
+            ID = inventory[random.randint(0,len(inventory)-1)]
+        arm.spawn_cage(ID)
+        move_endeffector(ID,"pick")       #pick/drop/hold indicates whether the intent (pickup, dropoff, go to home position)
+        control_gripper(ID,"pick")
+        move_endeffector(ID,"hold")
+        open_autoclave_drawer(ID,True)    #True = open, False = close
+        move_endeffector(ID,"drop")
+        control_gripper(ID,"drop")
+        open_autoclave_drawer(ID,False)
+        move_endeffector(ID,"hold")
+        inventory.remove(ID)           
